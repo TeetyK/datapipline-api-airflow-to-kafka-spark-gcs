@@ -14,8 +14,8 @@ locals {
 }
 
 #Terraform Google stronge bucket
-resource "google_storage_bucket" "gcs_bucket_api"{
-    name = var.gcs_bucket_name
+resource "google_storage_bucket" "api_gcs_bucket_name"{
+    name = var.api_gcs_bucket_name
     location = var.location
     force_destroy = true
 

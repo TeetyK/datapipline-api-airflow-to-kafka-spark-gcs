@@ -10,9 +10,9 @@ variable "billing_id" {
   description = "Google Billing Project"
   default     = "api-datapipeline-2"
 }
-variable "gcs_bucket_name" {
+variable "api_gcs_bucket_name" {
   description = "GCS Bucket Name"
-  default     = "gcs_bucket_api"
+  default     = "gcs_bucket_api_1"
 }
 variable "region" {
   description = "Google Cloud region"
