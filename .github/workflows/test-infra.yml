@@ -13,6 +13,7 @@ jobs:
   terraform:
     name: 'Terraform CI'
     runs-on: ubuntu-latest
+    environment: GCS
     
     defaults:
       run:
