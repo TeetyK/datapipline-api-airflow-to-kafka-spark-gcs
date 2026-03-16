@@ -1,60 +1,71 @@
-provider "google" {
-  project = var.project_id
-  region  = var.region
+#Terraform Google provider
+provider "google"{
+    project = var.project_id
+    region = var.region
+    # user_project_override = true
+    # billing_project = var.billing_id
+    zone = var.zone
+    credentials = file(var.service_account_path)
 }
 
-# GCS Bucket for data lake
-resource "google_storage_bucket" "data_lake" {
-  name          = "${var.project_id}-data-lake"
-  location      = var.region
-  force_destroy = true
+locals {
+    sa_key = jsondecode(file(var.service_account_path))
+    sa_email = local.sa_key.client_email
 }
 
-# GCS Bucket for DBT models
-resource "google_storage_bucket" "dbt_models" {
-  name          = "${var.project_id}-dbt-models"
-  location      = var.region
-  force_destroy = true
+#Terraform Google stronge bucket
+resource "google_storage_bucket" "gcs_bucket_api"{
+    name = var.gcs_bucket_name
+    location = var.location
+    force_destroy = true
+
+    # requester_pays = false
+    # uniform_bucket_level_access = true
+
+    # versioning {
+    #     enabled =false
+    # }
 }
 
-# Service Account for the pipeline
-resource "google_service_account" "pipeline_sa" {
-  account_id   = "data-pipeline-sa"
-  display_name = "Data Pipeline Service Account"
-}
+# resource "google_storage_bucket_iam_member" "bucket_owner"{
+#     bucket = google_storage_bucket.gcs_bucket.name
+#     role = "roles/storage.admin"
+#     member = "serviceAccount:${local.sa_email}"
+# }
 
-# IAM permissions
-resource "google_storage_bucket_iam_member" "data_lake_writer" {
-  bucket = google_storage_bucket.data_lake.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.pipeline_sa.email}"
-}
-
-# Dataproc cluster for Spark (optional - if using GCP managed Spark)
-resource "google_dataproc_cluster" "spark_cluster" {
-  name   = "spark-kafka-cluster"
-  region = var.region
-  
-  cluster_config {
-    master_config {
-      num_instances = 1
-      machine_type  = "n1-standard-4"
-      disk_config {
-        boot_disk_size_gb = 100
-      }
-    }
+# bronze layer
+resource "google_bigquery_dataset" "bronze" {
+    dataset_id = var.bigquery_bronze_dataset_name
+    description = "This's a bronze layer in BugQuery"
+    location = var.location
+    default_table_expiration_ms = 3600000
     
-    worker_config {
-      num_instances = 2
-      machine_type  = "n1-standard-4"
-      disk_config {
-        boot_disk_size_gb = 100
-      }
-    }
-    
-    software_config {
-      image_version = "2.0-debian10"
-      optional_components = ["KAFKA", "ZOOKEEPER"]
-    }
-  }
+    # access {
+    #     role    ="WRITER"
+    #     user_by_email = local.sa_email
+    # }
+}
+# silver layer
+resource "google_bigquery_dataset" "silver" {
+    dataset_id = var.bigquery_silver_dataset_name
+    description = "This's a silver layer in BugQuery"
+    location = var.location
+    default_table_expiration_ms = 3600000
+
+    #  access {
+    #     role    ="WRITER"
+    #     user_by_email = local.sa_email
+    # }
+}
+# gold layer
+resource "google_bigquery_dataset" "gold" {
+    dataset_id = var.bigquery_gold_dataset_name
+    description = "This's a gold layer in BugQuery"
+    location = var.location
+    default_table_expiration_ms = 3600000
+
+    #  access {
+    #     role    ="WRITER"
+    #     user_by_email = local.sa_email
+    # }
 }
