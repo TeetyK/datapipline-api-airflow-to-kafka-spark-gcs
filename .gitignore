@@ -25,3 +25,5 @@ _override.tf.json
 .terraformrc
 terraform.rc
 .env
+dags\__pycache__
+logs
