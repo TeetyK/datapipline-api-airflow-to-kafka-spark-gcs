@@ -4,10 +4,10 @@ x-airflow-common:
   environment:
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-    - AIRFLOW__CORE__FERNET_KEY=76Mh9Yy7j-JmQ97zF5rV0L-f_XvJc0_x-VpYyW4_x78=
+    - AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}
     - AIRFLOW__CORE__LOAD_EXAMPLES=false
     - AIRFLOW__WEBSERVER__SECRET_KEY=secret-key-123
-    - API_BASE_URL=${API_BASE_URL}
+    - API_URL=${API_URL}
     - API_BEARER_TOKEN=${API_BEARER_TOKEN}
     - _PIP_ADDITIONAL_REQUIREMENTS=kafka-python requests python-dotenv
   volumes:
