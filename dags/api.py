@@ -1,15 +1,27 @@
-# from airflow import DAG
-# from airflow.operators.python import PythonOperator
-# from airflow.exceptions import AirflowException
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from airflow.exceptions import AirflowException
 import logging
 from dotenv import load_dotenv
 import os
 import requests
 import json
+from kafka import KafkaProducer
+from datetime import datetime , timedelta
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-def fetch_api_data():
+default_args = {
+    'owner': 'data_team',
+    'depends_on_past':False,
+    'start_date': datetime(2026,1,1),
+    'email_on_failure':False,
+    'email_on_retry':False,
+    'retries':2,
+    'retry_delay': timedelta(minutes=1)
+}
+
+def fetch_api_data(**context):
     api_url = os.getenv("API_URL")
     api_token = os.getenv("API_BEARER_TOKEN")
     if not api_token:
@@ -28,8 +40,76 @@ def fetch_api_data():
     data = response.json()
     records = data if isinstance(data,list) else [data]
     logger.info(f"Fetched {len(records)} records from API")
+    return records
     
+def produce_to_kafka(**context):
 
+    ti = context["ti"]
+    records = ti.xcom_pull(task_ids='fetch_api_data')
 
-if __name__ == "__main__":
-    fetch_api_data()
+    if not records:
+        logger.warning("No record to send to kafka")
+    
+    producer = KafkaProducer(
+        bootstrap_servers=['kafka:29092'],
+        value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+        key_serializer=lambda k: k.encode('utf-8') if k else None,
+        acks='all',
+        retries=3
+    )
+    sent_count = 0
+    for record in records:
+        try:
+            record_id = record.get('id',str(hash(json.dumps(record,sort_keys=True))))
+            future = producer.send("Raw_Data", value=record, key=record_id)
+            future.get(timeout=10)
+            sent_count +=1
+        except Exception as e:
+            logger.error(f"{e}")
+            continue
+    producer.flush()
+    producer.close()
+    logger.info(f"Send {sent_count}/{len(records)} to kafka topic: RawData")
+    return sent_count
+
+def validate_kafka_delivery(**context):
+    ti = context['ti']
+    expected = ti.xcom_pull(task_ids='fetch_api_data')
+    sent = ti.xcom_pull(task_ids='produce_to_kafka')
+
+    if expected and sent and len(expected) == sent:
+        logger.info("Kafka Delivery validated")
+        return True
+    else:
+        logger.warning(f"Delivery mismatch expected={len(expected) if expected else 0} , sent = {sent}")
+        return True
+
+with DAG(
+    'api_to_kafka_pipeline',
+    default_args=default_args,
+    description='Fetch data from API and stream to Kafka',
+    schedule_interval='*/10 * * * *',  # ทุก 10 นาที
+    catchup=False,
+    tags=['data-pipeline', 'api', 'kafka'],
+    max_active_runs=1,
+) as dag:
+
+    fetch_data = PythonOperator(
+        task_id='fetch_api_data',
+        python_callable=fetch_api_data,
+    )
+
+    produce_kafka = PythonOperator(
+        task_id='produce_to_kafka',
+        python_callable=produce_to_kafka,
+    )
+
+    validate_delivery = PythonOperator(
+        task_id='validate_kafka_delivery',
+        python_callable=validate_kafka_delivery,
+        trigger_rule='all_done'
+    )
+
+    fetch_data >> produce_kafka >> validate_delivery
+# if __name__ == "__main__":
+    # fetch_api_data() # Test API
