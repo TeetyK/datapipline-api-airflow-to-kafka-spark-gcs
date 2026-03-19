@@ -1,0 +1,24 @@
+name: 'API CI/CD'
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  api:
+    name: 'Terraform CI'
+    runs-on: ubuntu-latest
+    environment: GCS
+    
+    defaults:
+      run:
+        working-directory: ./
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
