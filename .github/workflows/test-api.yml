@@ -33,7 +33,7 @@ on:
         default: false
         type: boolean
 
-env:
+environment:
   PYTHON_VERSION: "3.12"
   PIP_CACHE_DIR: ~/.cache/pip
 
