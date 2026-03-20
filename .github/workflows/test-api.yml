@@ -1,5 +1,5 @@
 
-name: API Testing CI
+name: 'API Testing CI'
 
 on:
   push:
@@ -34,7 +34,7 @@ on:
         type: boolean
 
 env:
-  PYTHON_VERSION: "3.10"
+  PYTHON_VERSION: "3.12"
   PIP_CACHE_DIR: ~/.cache/pip
 
 jobs:
