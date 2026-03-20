@@ -1,0 +1,106 @@
+# docker/docker-compose.test.yml
+# Test infrastructure สำหรับ integration tests
+
+name: api-pipeline-test
+
+services:
+  # ===========================
+  # WireMock - Mock API Server
+  # ===========================
+  wiremock:
+    image: wiremock/wiremock:2.35.0
+    container_name: wiremock-test
+    ports:
+      - "8082:8080"
+    volumes:
+      - ../tests/mocks/wiremock:/home/wiremock
+    command: 
+      - "--global-response-templating"
+      - "--verbose"
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/__admin/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================
+  # Kafka Infrastructure
+  # ===========================
+  zookeeper-test:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper-test
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - test-network
+
+  kafka-test:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-test
+    depends_on:
+      zookeeper-test:
+        condition: service_healthy
+    ports:
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-test:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: |
+        PLAINTEXT://kafka-test:29092,
+        PLAINTEXT_HOST://localhost:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ===========================
+  # Test Runner Container
+  # ===========================
+  api-tests:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.test
+    container_name: api-test-runner
+    depends_on:
+      wiremock:
+        condition: service_healthy
+      kafka-test:
+        condition: service_healthy
+    environment:
+      # API Configuration
+      - TEST_API_URL=http://wiremock:8080/v2/randomuser
+      - TEST_API_TOKEN=test_key_12345
+      
+      # Kafka Configuration
+      - KAFKA_BOOTSTRAP=kafka-test:29092
+      - KAFKA_TOPIC=test_raw_api_data
+      
+      # Test Configuration
+      - PYTEST_ADDOPTS=-v --color=yes
+      - PYTHONPATH=/app
+    volumes:
+      - ../tests:/app/tests
+      - ../dags:/app/dags
+      - ../reports:/app/reports
+    networks:
+      - test-network
+    command: >
+      bash -c "
+        echo '🚀 Starting API Tests...' &&
+        pip install -q -r requirements-test.txt &&
+        pytest tests/ -m 'not live' --cov=dags --cov-report=xml
+      "
+
+networks:
+  test-network:
+    driver: bridge

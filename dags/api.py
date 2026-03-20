@@ -100,7 +100,7 @@ def produce_to_kafka(**context):
     sent_count = 0
     for record in records:
         try:
-            record_id = record.get('id',str(hash(json.dumps(record,sort_keys=True))))
+            record_id = record.get('user_id') or record.get('uuid',str(hash(json.dumps(record,sort_keys=True))))
             future = producer.send("Raw_Data", value=record, key=record_id)
             future.get(timeout=10)
             sent_count +=1
