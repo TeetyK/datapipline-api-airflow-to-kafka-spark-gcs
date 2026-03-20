@@ -38,9 +38,49 @@ def fetch_api_data(**context):
     else:
         print("Success!")
     data = response.json()
-    records = data if isinstance(data,list) else [data]
-    logger.info(f"Fetched {len(records)} records from API")
-    return records
+    users = data if isinstance(data,list) else [data]
+    transformed_records = []
+    for user in users:
+        record = {
+            'user_id': user.get('id'),
+            'username': user.get('username'),
+            'uuid': user.get('uuid'),
+            'name': user.get('name'),
+            'first_name': user.get('first_name'),
+            'last_name': user.get('last_name'),
+            'gender': user.get('gender'),
+            'age':user.get('age'),
+            'dob':user.get('dob'),
+            'email': user.get('email'),
+            'phone':user.get('phone'),
+            'cell': user.get('cell'),
+            "address": user.get("address"),
+            "street_address": user.get("street_address"),
+            "city": user.get("city"),
+            "state": user.get("state"),
+            "postal_code": user.get("postal_code"),
+            "country": user.get("country"),
+            "latitude": user.get("latitude"),
+            "longitude": user.get("longitude"),
+            "job": user.get("job"),
+            "company": user.get("company"),
+            "company_email": user.get("company_email"),
+            "ipv4": user.get("ipv4"),
+            "ipv6": user.get("ipv6"),
+            "mac_address": user.get("mac_address"),
+            "user_agent": user.get("user_agent"),
+            "timezone": user.get("timezone"),
+            "locale": user.get("locale"),
+            "picture": user.get("picture"),
+            "avatar": user.get("avatar"),
+            "fetched_at": datetime.now().isoformat(),
+            "source": "api-ninjas-randomuser",
+            "api_version": "v2"
+        }
+        transformed_records.append(record)
+
+    logger.info(f"Fetched {len(transformed_records)} records from API")
+    return transformed_records
     
 def produce_to_kafka(**context):
 
