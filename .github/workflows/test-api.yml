@@ -3,7 +3,7 @@ name: API Testing CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: ["main"]
     paths:
       - 'dags/api.py'
       - 'tests/**'
@@ -11,7 +11,7 @@ on:
       - '.github/workflows/api-test.yml'
       - 'config/pytest.ini'
   pull_request:
-    branches: [main]
+    branches: ["main"]
     paths:
       - 'dags/api.py'
       - 'tests/**'
