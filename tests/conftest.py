@@ -7,6 +7,7 @@ from datetime import datetime
 
 @pytest.fixture
 def sample_api_response():
+    """Sample response จาก API-Ninjas สำหรับทดสอบ"""
     return [
         {
             "id": "test-uuid-001",
@@ -29,6 +30,7 @@ def sample_api_response():
 
 @pytest.fixture
 def mock_successful_response():
+    """Mock requests.Response สำหรับกรณีสำเร็จ"""
     mock_response = Mock()
     mock_response.status_code = 200
     mock_response.json.return_value = [
@@ -47,6 +49,7 @@ def mock_successful_response():
 
 @pytest.fixture
 def mock_error_response():
+    """Factory สำหรับสร้าง mock error responses"""
 
     def _create_error(status_code, error_text):
         mock_response = Mock()
@@ -62,6 +65,7 @@ def mock_error_response():
 
 @pytest.fixture
 def mock_kafka_producer():
+    """Mock KafkaProducer สำหรับ unit tests"""
     mock_producer = Mock()
     mock_future = Mock()
     mock_future.get.return_value = True
@@ -73,12 +77,14 @@ def mock_kafka_producer():
 
 @pytest.fixture
 def airflow_context():
+    """Mock Airflow task context"""
     mock_ti = Mock()
     return {"ti": mock_ti}
 
 
 @pytest.fixture
 def mock_env_vars():
+    """Fixture สำหรับ mock environment variables"""
 
     def _mock_env(custom_vars=None):
         default_vars = {
@@ -101,17 +107,16 @@ def mock_env_vars():
 
 @pytest.fixture
 def assert_transformed_record():
+    """Assertion helper สำหรับตรวจสอบว่า record ถูก transform ถูกต้อง"""
 
     def _assert(record):
         assert "user_id" in record or "uuid" in record
         assert "username" in record
         assert "email" in record
-
         assert record["source"] == "api-ninjas-randomuser"
         assert record["api_version"] == "v2"
         assert "fetched_at" in record
         assert isinstance(record["fetched_at"], str)
-
         try:
             datetime.fromisoformat(
                 record["fetched_at"].replace("Z", "+00:00")
@@ -122,4 +127,3 @@ def assert_transformed_record():
             )
 
     return _assert
-    
