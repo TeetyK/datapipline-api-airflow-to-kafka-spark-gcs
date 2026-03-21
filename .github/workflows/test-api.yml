@@ -1,6 +1,6 @@
 # CI Pipeline  Airflow DAG
 
-name: 🧪 DAG Testing CI
+name: DAG Testing CI
 
 on:
   push:
