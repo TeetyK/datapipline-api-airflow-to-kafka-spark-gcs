@@ -125,5 +125,4 @@ def assert_transformed_record():
             pytest.fail(
                 f"fetched_at is not valid ISO format: {record['fetched_at']}"
             )
-
     return _assert
