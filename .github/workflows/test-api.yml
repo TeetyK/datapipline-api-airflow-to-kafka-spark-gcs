@@ -1,6 +1,4 @@
-# .github/workflows/api-test.yml
-# CI Pipeline สำหรับทดสอบ API-Ninjas Integration
-
+# .github/workflows/test-api.yml
 name: 🔍 API Testing CI
 
 on:
@@ -9,137 +7,24 @@ on:
     paths:
       - 'dags/api.py'
       - 'tests/**'
+      - 'docker/**'
       - 'requirements*.txt'
-      - '.github/workflows/api-test.yml'
-      - 'config/pytest.ini'
+      - '.github/workflows/test-api.yml'
   pull_request:
     branches: [main]
-    paths:
-      - 'dags/api.py'
-      - 'tests/**'
-      - 'requirements*.txt'
-  workflow_dispatch:
-    inputs:
-      test_type:
-        description: 'Type of tests to run'
-        required: false
-        default: 'all'
-        type: choice
-        options:
-          - unit
-          - integration
-          - all
 
 env:
   PYTHON_VERSION: "3.10"
-  PIP_CACHE_DIR: ~/.cache/pip
 
 jobs:
-  # ===========================
-  # Job 1: Setup & Validation
-  # ===========================
-  setup:
-    name: 🔧 Setup & Validate
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Validate configuration files
-        run: |
-          echo "🔍 Validating pytest.ini..."
-          [ -f config/pytest.ini ] && echo "✅ pytest.ini found" || echo "⚠️ pytest.ini not found"
-          
-          echo "🔍 Validating test structure..."
-          find tests -name "test_*.py" -type f | head -10
-          
-          echo "🔍 Checking requirements..."
-          [ -f requirements-test.txt ] && echo "✅ requirements-test.txt found"
-
-  # ===========================
-  # Job 2: Code Quality Checks
-  # ===========================
-  lint-and-format:
-    name: 🎨 Lint & Format
-    runs-on: ubuntu-latest
-    needs: setup
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-      
-      - name: Install quality tools
-        run: |
-          pip install --upgrade pip
-          pip install black flake8 isort mypy
-      
-      - name: Check code formatting (Black)
-        run: |
-          black --check dags/ tests/ --line-length=120 || true
-      
-      - name: Run Flake8 linting
-        run: |
-          flake8 dags/ tests/ \
-            --max-line-length=120 \
-            --ignore=E203,W503,E501 \
-            --max-complexity=10
-
-  # ===========================
-  # Job 3: Security Scanning
-  # ===========================
-  security-scan:
-    name: 🔒 Security Scan
-    runs-on: ubuntu-latest
-    needs: setup
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install security tools
-        run: |
-          pip install bandit safety
-      
-      - name: Run Bandit (code security)
-        run: |
-          bandit -r dags/ -f txt || true
-      
-      - name: Run Safety (dependency vulnerabilities)
-        run: |
-          safety check -r requirements-test.txt || true
-      
-      - name: Upload security reports
-        uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: security-reports
-          path: |
-            bandit-report.json
-            safety-report.json
-          retention-days: 7
-
-  # ===========================
-  # Job 4: Unit Tests
-  # ===========================
   unit-tests:
     name: 🧪 Unit Tests
     runs-on: ubuntu-latest
-    needs: [setup, lint-and-format, security-scan]
-    
     steps:
       - uses: actions/checkout@v4
       
       - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -151,154 +36,41 @@ jobs:
       
       - name: Run unit tests
         run: |
-          pytest tests/unit/ \
-            -v \
-            -m unit \
-            --cov=dags \
-            --cov-report=xml \
-            --cov-report=html:coverage-html \
-            --cov-report=term-missing \
-            --html=reports/unit-report.html \
-            --self-contained-html
+          pytest tests/unit/ -v -m unit --cov=dags --cov-report=xml
       
-      - name: Upload test results
-        uses: actions/upload-artifact@v3
-        if: always()
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
         with:
-          name: unit-test-results
-          path: |
-            reports/unit-report.html
-            coverage.xml
-            coverage-html/
-          retention-days: 7
-      
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.xml
-          flags: unit-tests
-          fail_ci_if_error: false
+          name: unit-test-coverage
+          path: coverage.xml
 
-  # ===========================
-  # Job 5: Integration Tests
-  # ===========================
   integration-tests:
     name: 🔗 Integration Tests
     runs-on: ubuntu-latest
-    needs: [setup, unit-tests]
-    
-    services:
-      wiremock:
-        image: wiremock/wiremock:2.35.0
-        ports:
-          - 8082:8080
-        volumes:
-          - ./tests/mocks/wiremock:/home/wiremock
-        options: >-
-          --health-cmd "curl -f http://localhost:8080/__admin/health"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      
-      kafka:
-        image: confluentinc/cp-kafka:7.5.0
-        ports:
-          - 9092:9092
-        environment:
-          KAFKA_BROKER_ID: 1
-          KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-          KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-        options: >-
-          --health-cmd "kafka-topics --bootstrap-server localhost:9092 --list"
-          --health-interval 15s
-          --health-timeout 10s
-          --health-retries 5
-      
-      zookeeper:
-        image: confluentinc/cp-zookeeper:7.5.0
-        environment:
-          ZOOKEEPER_CLIENT_PORT: 2181
-    
     steps:
       - uses: actions/checkout@v4
       
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v4
+      - name: Run Integration Tests via Docker Compose
+        run: |
+          docker compose -f docker/docker-compose.test.yml up --build --exit-code-from api-tests
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose -f docker/docker-compose.test.yml down
+
+  lint:
+    name: 🎨 Lint Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-test.txt
-      
-      - name: Wait for services
-        run: |
-          echo "⏳ Waiting for WireMock..."
-          for i in {1..30}; do
-            curl -f http://localhost:8082/__admin/health && break || sleep 2
-          done
-      
-      - name: Run integration tests (with WireMock)
-        env:
-          WIREMOCK_URL: http://localhost:8082
-          TEST_API_URL: http://localhost:8082/v2/randomuser
-          TEST_API_TOKEN: test_key_12345
-          KAFKA_BOOTSTRAP: localhost:9092
-          KAFKA_TOPIC: test_raw_api_data
-        run: |
-          pytest tests/integration/ \
-            -v \
-            -m "integration and not live" \
-            --ignore=tests/integration/test_api_live.py \
-            --html=reports/integration-report.html \
-            --self-contained-html
-      
-      - name: Upload integration test results
-        uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: integration-test-results
-          path: reports/*report*.html
-          retention-days: 7
-
-  # ===========================
-  # Job 6: Summary Report
-  # ===========================
-  test-summary:
-    name: 📊 Test Summary
-    runs-on: ubuntu-latest
-    needs: [unit-tests, integration-tests]
-    if: always()
-    
-    steps:
-      - name: Generate summary
-        run: |
-          echo "## 🧪 CI Test Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Unit Tests | ${{ needs.unit-tests.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Integration Tests | ${{ needs.integration-tests.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Lint & Security | ${{ needs.lint-and-format.result }} |" >> $GITHUB_STEP_SUMMARY
-      
-      - name: Check overall status
-        run: |
-          FAILED_JOBS=0
-          
-          if [ "${{ needs.unit-tests.result }}" = "failure" ]; then
-            FAILED_JOBS=$((FAILED_JOBS + 1))
-          fi
-          
-          if [ "${{ needs.integration-tests.result }}" = "failure" ]; then
-            FAILED_JOBS=$((FAILED_JOBS + 1))
-          fi
-          
-          if [ $FAILED_JOBS -gt 0 ]; then
-            echo "❌ $FAILED_JOBS test job(s) failed"
-            exit 1
-          else
-            echo "✅ All test jobs passed!"
-          fi
+      - name: Install Lint Tools
+        run: pip install flake8 black isort
+      - name: Run Black
+        run: black --check dags/ tests/ --line-length=120
+      - name: Run Flake8
+        run: flake8 dags/ tests/ --max-line-length=120 --ignore=E203,W503

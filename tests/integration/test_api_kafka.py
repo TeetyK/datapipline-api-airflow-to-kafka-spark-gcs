@@ -14,7 +14,7 @@ class TestApiToKafkaIntegration:
         """Test the full flow: fetch data -> produce to kafka"""
         
         # 1. Wait for services (WireMock and Kafka)
-        wiremock_url = os.getenv("TEST_API_URL", "http://localhost:8082/v2/randomuser")
+        wiremock_url = os.getenv("API_URL", "http://localhost:8082/v2/randomuser")
         # Extract base url for health check
         wiremock_base = "/".join(wiremock_url.split("/")[:3])
         
@@ -23,8 +23,10 @@ class TestApiToKafkaIntegration:
         
         # 2. Fetch data from Mock API
         with pytest.MonkeyPatch().context() as mp:
+            # Environment variables are already set in docker-compose or script, 
+            # but we can override or ensure they are there for the test
             mp.setenv("API_URL", wiremock_url)
-            mp.setenv("API_BEARER_TOKEN", "test_key_12345")
+            mp.setenv("API_BEARER_TOKEN", os.getenv("API_BEARER_TOKEN", "test_key_12345"))
             
             records = fetch_api_data()
             
@@ -33,7 +35,7 @@ class TestApiToKafkaIntegration:
             assert records[0]["source"] == "api-ninjas-randomuser"
             
             # 3. Produce to Kafka
-            bootstrap = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
+            bootstrap = os.getenv("KAFKA_BOOTSTRAP", "localhost:9093")
             topic = os.getenv("KAFKA_TOPIC", "test_raw_api_data")
             
             mp.setenv("KAFKA_BOOTSTRAP", bootstrap)
