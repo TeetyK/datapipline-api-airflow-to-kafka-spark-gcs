@@ -21,7 +21,7 @@ class TestFetchApiData:
         mock_env_vars,
         assert_transformed_record,
     ):
-        """ ทดสอบกรณีสำเร็จ: ข้อมูลถูก fetch และ transform ถูกต้อง"""
+        """ทดสอบกรณีสำเร็จ: ข้อมูลถูก fetch และ transform ถูกต้อง"""
         # Arrange
         mock_response = Mock()
         mock_response.status_code = 200
@@ -61,7 +61,7 @@ class TestFetchApiData:
     def test_fetch_api_error_handling(
         self, mock_get, status_code, error_msg, mock_env_vars
     ):
-        """ ทดสอบกรณี API ส่ง error ต่างๆ"""
+        """ทดสอบกรณี API ส่ง error ต่างๆ"""
         # Arrange
         mock_response = Mock()
         mock_response.status_code = status_code
@@ -77,7 +77,7 @@ class TestFetchApiData:
 
     @patch("dags.api.requests.get")
     def test_fetch_api_timeout(self, mock_get, mock_env_vars):
-        """ ทดสอบกรณี Request Timeout"""
+        """ทดสอบกรณี Request Timeout"""
         # Arrange
         mock_get.side_effect = requests.exceptions.Timeout("Request timed out")
 
@@ -90,7 +90,7 @@ class TestFetchApiData:
 
     @patch("dags.api.requests.get")
     def test_fetch_api_connection_error(self, mock_get, mock_env_vars):
-        """ ทดสอบกรณี Connection Error"""
+        """ ดสอบกรณี Connection Error"""
         # Arrange
         mock_get.side_effect = requests.exceptions.ConnectionError(
             "Failed to connect"
@@ -103,7 +103,7 @@ class TestFetchApiData:
 
     @patch("dags.api.requests.get")
     def test_fetch_api_invalid_json(self, mock_get, mock_env_vars):
-        """ ทดสอบกรณี Response ไม่ใช่ JSON ที่ถูกต้อง"""
+        """ทดสอบกรณี Response ไม่ใช่ JSON ที่ถูกต้อง"""
         # Arrange
         mock_response = Mock()
         mock_response.status_code = 200
@@ -122,7 +122,7 @@ class TestFetchApiData:
             )
 
     def test_fetch_missing_api_token_logs_warning(self, mock_env_vars, caplog):
-        # Arrange: Mock env ที่ไม่มี token
+                # Arrange: Mock env ที่ไม่มี token
         def mock_env_no_token(key, default=None):
             if key == "API_BEARER_TOKEN":
                 return None
@@ -145,7 +145,7 @@ class TestFetchApiData:
     def test_fetch_handles_single_object_response(
         self, mock_env_vars, assert_transformed_record
     ):
-        """ ทดสอบกรณี API ส่งข้อมูลเป็น object เดียว (ไม่ใช่ list)"""
+        """ทดสอบกรณี API ส่งข้อมูลเป็น object เดียว (ไม่ใช่ list)"""
         # Arrange
         single_user = {
             "id": "single-001",
@@ -172,7 +172,7 @@ class TestFetchApiData:
 
     @patch("dags.api.requests.get")
     def test_fetch_uses_default_url_when_not_set(self, mock_get, mock_env_vars):
-        """ ทดสอบว่าใช้ default URL เมื่อ API_URL ไม่ถูกตั้งค่า"""
+        """ทดสอบว่าใช้ default URL เมื่อ API_URL ไม่ถูกตั้งค่า"""
         # Arrange
         mock_response = Mock()
         mock_response.status_code = 200
