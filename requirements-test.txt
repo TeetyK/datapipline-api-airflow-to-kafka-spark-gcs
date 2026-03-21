@@ -11,7 +11,6 @@ responses==0.23.3
 kafka-python==2.0.2
 confluent-kafka==2.3.0
 
-wiremock==2.35.0
 unittest2==1.1.0
 
 black==23.7.0
