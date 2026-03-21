@@ -1,5 +1,5 @@
 from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator
+from airflow.operators.python import PythonOperator
 from airflow.exceptions import AirflowException
 import logging
 from dotenv import load_dotenv
@@ -34,15 +34,19 @@ def fetch_api_data(**context):
     headers = {"X-API-Key": f"{api_token}", "Content-Type": "application/json", "User-Agent": "DatePipeline/1.0"}
 
     params = {"count": api_count}
-    response = requests.get(url=api_url, headers=headers, params=params, timeout=30)
+    try:
+        response = requests.get(url=api_url, headers=headers, params=params, timeout=30)
+        logger.info(f"API Request to {api_url} - Status Code: {response.status_code}")
 
-    logger.info(f"API Request to {api_url} - Status Code: {response.status_code}")
+        if response.status_code != 200:
+            logger.error(f"Error Detail: {response.text}")
+            raise AirflowException(f"API request failed with status {response.status_code}: {response.text}")
 
-    if response.status_code != 200:
-        logger.error(f"Error Detail: {response.text}")
-        raise AirflowException(f"API request failed with status {response.status_code}: {response.text}")
+        data = response.json()
+    except (requests.exceptions.RequestException, json.JSONDecodeError, Exception) as e:
+        logger.error(f"API Fetch Error: {str(e)}")
+        raise AirflowException(f"API Fetch Error: {str(e)}")
 
-    data = response.json()
     users = data if isinstance(data, list) else [data]
     transformed_records = []
 
@@ -162,5 +166,3 @@ with DAG(
     )
 
     fetch_data >> produce_kafka >> validate_delivery
-# if __name__ == "__main__":
-# fetch_api_data() # Test API

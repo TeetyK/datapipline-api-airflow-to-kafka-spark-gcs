@@ -1,5 +1,5 @@
 # .github/workflows/test-api.yml
-name: 🔍 API Testing CI
+name: API Testing CI
 
 on:
   push:
