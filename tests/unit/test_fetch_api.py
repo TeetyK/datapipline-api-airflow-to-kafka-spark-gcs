@@ -121,9 +121,7 @@ class TestFetchApiData:
                 exc_info.value
             )
 
-    def test_fetch_missing_api_token_logs_warning(
-        self, mock_env_vars, caplog
-    ):
+    def test_fetch_missing_api_token_logs_warning(self, mock_env_vars, caplog):
         """ ทดสอบกรณีไม่มี API Token (ควร log warning แต่ไม่ crash)"""
         # Arrange: Mock env ที่ไม่มี token
         def mock_env_no_token(key, default=None):
