@@ -1,22 +1,22 @@
-pytest==7.4.0
-pytest-cov==4.1.0
-pytest-mock==3.11.1
-pytest-asyncio==0.21.1
-pytest-html==4.0.0
+pytest
+pytest-cov
+pytest-mock
+pytest-asyncio
+pytest-html
 
-requests==2.31.0
-requests-mock==1.11.0
-responses==0.23.3
+requests
+requests-mock
+responses
 
-kafka-python==2.0.2
-confluent-kafka==2.3.0
+kafka-python
+confluent-kafka
 
-unittest2==1.1.0
+unittest2
 
-black==23.7.0
-flake8==6.1.0
-bandit==1.7.5
-safety==2.3.5
+black
+flake8
+bandit
+safety
 
-python-dotenv==1.0.0
-jsonschema==4.19.0
+python-dotenv
+jsonschema
