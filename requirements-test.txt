@@ -13,6 +13,9 @@ confluent-kafka
 
 unittest2
 
+# Add airflow for test environments
+apache-airflow
+
 black
 flake8
 bandit
