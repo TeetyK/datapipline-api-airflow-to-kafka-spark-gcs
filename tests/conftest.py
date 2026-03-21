@@ -13,29 +13,35 @@ from pathlib import Path
 # Path Fixtures
 # ===========================
 
+
 @pytest.fixture(scope="session")
 def project_root():
     """Root path ของโปรเจค"""
     return Path(__file__).parent.parent
+
 
 @pytest.fixture(scope="session")
 def dags_path(project_root):
     """Path ไปยังโฟลเดอร์ dags"""
     return project_root / "dags"
 
+
 @pytest.fixture(scope="session")
 def tests_path(project_root):
     """Path ไปยังโฟลเดอร์ tests"""
     return project_root / "tests"
+
 
 @pytest.fixture(scope="session")
 def mocks_path(tests_path):
     """Path ไปยังโฟลเดอร์ mocks"""
     return tests_path / "mocks"
 
+
 # ===========================
 # API Fixtures
 # ===========================
+
 
 @pytest.fixture
 def api_ninjas_config():
@@ -44,8 +50,9 @@ def api_ninjas_config():
         "base_url": os.getenv("API_URL", "https://api.api-ninjas.com/v2/randomuser"),
         "api_key": os.getenv("API_BEARER_TOKEN", "test_key_placeholder"),
         "default_count": int(os.getenv("API_NINJAS_COUNT", "3")),
-        "timeout": 30
+        "timeout": 30,
     }
+
 
 @pytest.fixture
 def sample_api_response():
@@ -81,7 +88,7 @@ def sample_api_response():
             "mac_address": "00:1B:44:11:3A:B7",
             "user_agent": "Mozilla/5.0",
             "picture": "https://example.com/pic1.jpg",
-            "avatar": "https://example.com/avatar1.png"
+            "avatar": "https://example.com/avatar1.png",
         },
         {
             "id": "test-uuid-002",
@@ -90,9 +97,10 @@ def sample_api_response():
             "name": "Test User Two",
             "country": "USA",
             "age": 30,
-            "gender": "male"
-        }
+            "gender": "male",
+        },
     ]
+
 
 @pytest.fixture
 def api_error_responses():
@@ -102,12 +110,14 @@ def api_error_responses():
         "403": {"status": 403, "body": '{"error": "Quota exceeded"}'},
         "429": {"status": 429, "body": '{"error": "Rate limit exceeded"}'},
         "500": {"status": 500, "body": '{"error": "Internal server error"}'},
-        "timeout": {"exception": requests.exceptions.Timeout("Request timed out")}
+        "timeout": {"exception": requests.exceptions.Timeout("Request timed out")},
     }
+
 
 # ===========================
 # Kafka Fixtures
 # ===========================
+
 
 @pytest.fixture
 def kafka_config():
@@ -115,8 +125,9 @@ def kafka_config():
     return {
         "bootstrap_servers": os.getenv("KAFKA_BOOTSTRAP", "localhost:9092"),
         "topic": os.getenv("KAFKA_TOPIC", "test_raw_api_data"),
-        "consumer_group": "test-consumer-group"
+        "consumer_group": "test-consumer-group",
     }
+
 
 @pytest.fixture
 def mock_kafka_producer():
@@ -129,6 +140,7 @@ def mock_kafka_producer():
     mock_producer.close.return_value = None
     return mock_producer
 
+
 @pytest.fixture
 def mock_kafka_consumer():
     """Mock Kafka Consumer สำหรับ unit tests"""
@@ -137,60 +149,63 @@ def mock_kafka_consumer():
     mock_consumer.close.return_value = None
     return mock_consumer
 
+
 # ===========================
 # Airflow Fixtures
 # ===========================
 
+
 @pytest.fixture
 def airflow_context():
     """Mock Airflow task context"""
-    return {
-        "ti": Mock(),
-        "dag": Mock(),
-        "task": Mock(),
-        "execution_date": datetime.now(),
-        "dag_run": Mock()
-    }
+    return {"ti": Mock(), "dag": Mock(), "task": Mock(), "execution_date": datetime.now(), "dag_run": Mock()}
+
 
 @pytest.fixture
 def mock_xcom():
     """Mock XCom operations"""
     xcom_data = {}
-    
+
     def xcom_push(key, value):
         xcom_data[key] = value
-    
-    def xcom_pull(task_ids, key='return_value'):
+
+    def xcom_pull(task_ids, key="return_value"):
         return xcom_data.get(key)
-    
+
     return {"push": xcom_push, "pull": xcom_pull, "data": xcom_data}
+
 
 # ===========================
 # Helper Functions
 # ===========================
 
+
 @pytest.fixture
 def assert_user_schema():
     """Assertion helper สำหรับตรวจสอบ user record schema"""
+
     def _assert(user_record, required_fields=None):
         if required_fields is None:
             required_fields = ["user_id", "username", "email", "name", "country"]
-        
+
         for field in required_fields:
             assert field in user_record, f"Missing required field: {field}"
-        
+
         # Check pipeline metadata
         assert "fetched_at" in user_record
         assert user_record["source"] == "api-ninjas-randomuser"
         assert user_record["api_version"] == "v2"
-    
+
     return _assert
+
 
 @pytest.fixture
 def wait_for_service():
     """Helper สำหรับรอให้ service พร้อม"""
+
     def _wait(url, timeout=30, interval=2):
         import time
+
         start = time.time()
         while time.time() - start < timeout:
             try:
@@ -201,4 +216,5 @@ def wait_for_service():
                 pass
             time.sleep(interval)
         return False
+
     return _wait
