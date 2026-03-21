@@ -123,3 +123,4 @@ class TestProduceToKafka:
         key3 = str(record_without_ids.get("user_id") or record_without_ids.get("uuid") or hash(json.dumps(record_without_ids, sort_keys=True)))
         assert isinstance(key3, str)
         assert len(key3) > 0
+        
