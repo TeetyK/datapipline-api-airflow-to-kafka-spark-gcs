@@ -1,9 +1,11 @@
-FROM python:3.10-slim
+FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
+# Install uv and system dependencies
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     netcat-openbsd \
@@ -11,9 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Install dependencies using uv
 COPY requirements-test.txt .
-RUN pip install --upgrade pip && \
-    pip install -r requirements-test.txt
+RUN uv pip install --system -r requirements-test.txt
 
 # Copy source and tests
 COPY dags/ ./dags/
