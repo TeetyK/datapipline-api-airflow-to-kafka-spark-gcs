@@ -24,7 +24,7 @@ default_args = {
 
 
 def fetch_api_data(**context):
-    api_url = os.getenv("API_URL", "https://api.api-ninjas.com/v2/randomuser")
+    api_url = os.getenv("API_URL", "https://api.api-ninjas.com/v2/randomuser").strip()
     api_token = os.getenv("API_BEARER_TOKEN")
     api_count = os.getenv("API_NINJAS_COUNT", "1")
 
