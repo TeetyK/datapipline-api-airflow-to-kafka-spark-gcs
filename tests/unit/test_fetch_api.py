@@ -195,3 +195,5 @@ class TestFetchApiData:
             call_args = mock_get.call_args
             called_url = call_args[1]["url"]
             assert "api.api-ninjas.com/v2/randomuser" in called_url
+
+
