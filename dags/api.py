@@ -22,24 +22,32 @@ default_args = {
 }
 
 def fetch_api_data(**context):
-    api_url = os.getenv("API_URL")
+    api_url = os.getenv("API_URL", "https://api.api-ninjas.com/v2/randomuser")
     api_token = os.getenv("API_BEARER_TOKEN")
+    api_count = os.getenv("API_NINJAS_COUNT", "1")
+    
     if not api_token:
-        print("API KEY NOT FOUND")
+        logger.warning("API_BEARER_TOKEN NOT FOUND")
+        
     headers = {
         "X-API-Key": f"{api_token}",
         "Content-Type": "application/json",
-        "User-Agent":"DatePipeline/1.0"
+        "User-Agent": "DatePipeline/1.0"
     }
-    response = requests.get(url=api_url,headers=headers)
-    print(f"Status Code: {response.status_code}")
+    
+    params = {"count": api_count}
+    response = requests.get(url=api_url, headers=headers, params=params, timeout=30)
+    
+    logger.info(f"API Request to {api_url} - Status Code: {response.status_code}")
+    
     if response.status_code != 200:
-        print("Error Detail:", response.text) 
-    else:
-        print("Success!")
+        logger.error(f"Error Detail: {response.text}")
+        raise AirflowException(f"API request failed with status {response.status_code}: {response.text}")
+    
     data = response.json()
-    users = data if isinstance(data,list) else [data]
+    users = data if isinstance(data, list) else [data]
     transformed_records = []
+    
     for user in users:
         record = {
             'user_id': user.get('id'),
@@ -49,10 +57,10 @@ def fetch_api_data(**context):
             'first_name': user.get('first_name'),
             'last_name': user.get('last_name'),
             'gender': user.get('gender'),
-            'age':user.get('age'),
-            'dob':user.get('dob'),
+            'age': user.get('age'),
+            'dob': user.get('dob'),
             'email': user.get('email'),
-            'phone':user.get('phone'),
+            'phone': user.get('phone'),
             'cell': user.get('cell'),
             "address": user.get("address"),
             "street_address": user.get("street_address"),
@@ -83,33 +91,38 @@ def fetch_api_data(**context):
     return transformed_records
     
 def produce_to_kafka(**context):
-
     ti = context["ti"]
     records = ti.xcom_pull(task_ids='fetch_api_data')
+    
+    bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP", "kafka:29092").split(",")
+    topic = os.getenv("KAFKA_TOPIC", "Raw_Data")
 
     if not records:
-        logger.warning("No record to send to kafka")
+        logger.warning("No records to send to kafka")
+        return 0
     
     producer = KafkaProducer(
-        bootstrap_servers=['kafka:29092'],
+        bootstrap_servers=bootstrap_servers,
         value_serializer=lambda v: json.dumps(v).encode('utf-8'),
         key_serializer=lambda k: k.encode('utf-8') if k else None,
         acks='all',
         retries=3
     )
+    
     sent_count = 0
     for record in records:
         try:
-            record_id = record.get('user_id') or record.get('uuid',str(hash(json.dumps(record,sort_keys=True))))
-            future = producer.send("Raw_Data", value=record, key=record_id)
+            record_id = str(record.get('user_id') or record.get('uuid') or hash(json.dumps(record, sort_keys=True)))
+            future = producer.send(topic, value=record, key=record_id)
             future.get(timeout=10)
-            sent_count +=1
+            sent_count += 1
         except Exception as e:
-            logger.error(f"{e}")
+            logger.error(f"Failed to send record to Kafka: {e}")
             continue
+            
     producer.flush()
     producer.close()
-    logger.info(f"Send {sent_count}/{len(records)} to kafka topic: RawData")
+    logger.info(f"Sent {sent_count}/{len(records)} to kafka topic: {topic}")
     return sent_count
 
 def validate_kafka_delivery(**context):
