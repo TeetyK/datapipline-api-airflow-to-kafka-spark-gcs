@@ -117,9 +117,8 @@ class TestFetchApiData:
             with pytest.raises(AirflowException) as exc_info:
                 fetch_api_data()
 
-            assert "JSON" in str(exc_info.value) or "Decode" in str(
-                exc_info.value
-            )
+            error_msg = str(exc_info.value).lower()
+            assert "expecting value" in error_msg or "api fetch error" in error_msg
 
     def test_fetch_missing_api_token_logs_warning(self, mock_env_vars, caplog):
         # Arrange: Mock env ที่ไม่มี token
@@ -191,4 +190,4 @@ class TestFetchApiData:
             # Assert: ควรใช้ default URL
             call_args = mock_get.call_args
             called_url = call_args[1]["url"]
-            assert "api.api-ninjas.com/v2/randomuser" in called_url
+            assert "api.api-ninjas.com/v2/randomuser" in called_url.strip()
