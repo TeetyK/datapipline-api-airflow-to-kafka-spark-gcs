@@ -2,7 +2,8 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    UV_SYSTEM_PYTHON=1
 
 # Install uv and system dependencies
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -15,7 +16,7 @@ WORKDIR /app
 
 # Install dependencies using uv
 COPY requirements-test.txt .
-RUN uv pip install --system -r requirements-test.txt
+RUN uv pip install -r requirements-test.txt
 
 # Copy source and tests
 COPY dags/ ./dags/

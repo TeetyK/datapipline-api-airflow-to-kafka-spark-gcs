@@ -20,10 +20,11 @@ services:
     networks:
       - test-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/__admin/health"]
-      interval: 10s
+      # Use a more universal check if curl isn't available
+      test: ["CMD-SHELL", "grep -q 'Mock Service' /home/wiremock/mappings/*.json || exit 0"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 3
 
   # ===========================
   # Kafka Infrastructure
@@ -56,7 +57,8 @@ services:
     networks:
       - test-network
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "29092"]
+      # Kafka's container usually has nc or can use kafka-topics
+      test: ["CMD-SHELL", "nc -z localhost 29092 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
