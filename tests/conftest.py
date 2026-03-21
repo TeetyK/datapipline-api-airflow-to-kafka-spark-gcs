@@ -41,8 +41,8 @@ def mocks_path(tests_path):
 def api_ninjas_config():
     """Configuration สำหรับ API-Ninjas testing"""
     return {
-        "base_url": os.getenv("API_NINJAS_URL", "https://api.api-ninjas.com/v2/randomuser"),
-        "api_key": os.getenv("API_NINJAS_KEY", "test_key_placeholder"),
+        "base_url": os.getenv("API_URL", "https://api.api-ninjas.com/v2/randomuser"),
+        "api_key": os.getenv("API_BEARER_TOKEN", "test_key_placeholder"),
         "default_count": int(os.getenv("API_NINJAS_COUNT", "3")),
         "timeout": 30
     }

@@ -1,5 +1,5 @@
 # docker/docker-compose.test.yml
-# Test infrastructure สำหรับ integration tests
+# Test infrastructure for integration tests
 
 name: api-pipeline-test
 
@@ -41,26 +41,23 @@ services:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka-test
     depends_on:
-      zookeeper-test:
-        condition: service_healthy
+      - zookeeper-test
     ports:
       - "9093:9093"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper-test:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: |
-        PLAINTEXT://kafka-test:29092,
-        PLAINTEXT_HOST://localhost:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-test:29092,PLAINTEXT_HOST://localhost:9093
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     networks:
       - test-network
     healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
-      interval: 15s
-      timeout: 10s
+      test: ["CMD", "nc", "-z", "localhost", "9092"]
+      interval: 10s
+      timeout: 5s
       retries: 5
 
   # ===========================
@@ -78,8 +75,8 @@ services:
         condition: service_healthy
     environment:
       # API Configuration
-      - TEST_API_URL=http://wiremock:8080/v2/randomuser
-      - TEST_API_TOKEN=test_key_12345
+      - API_URL=http://wiremock:8080/v2/randomuser
+      - API_BEARER_TOKEN=test_key_12345
       
       # Kafka Configuration
       - KAFKA_BOOTSTRAP=kafka-test:29092
@@ -94,12 +91,7 @@ services:
       - ../reports:/app/reports
     networks:
       - test-network
-    command: >
-      bash -c "
-        echo '🚀 Starting API Tests...' &&
-        pip install -q -r requirements-test.txt &&
-        pytest tests/ -m 'not live' --cov=dags --cov-report=xml
-      "
+    command: pytest tests/ -m "not live" --cov=dags --cov-report=xml
 
 networks:
   test-network:
