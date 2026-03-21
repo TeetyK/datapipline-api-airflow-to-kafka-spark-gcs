@@ -1,5 +1,5 @@
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+from airflow.providers.standard.operators.python import PythonOperator
 from airflow.exceptions import AirflowException
 import logging
 from dotenv import load_dotenv
@@ -142,7 +142,7 @@ with DAG(
     "api_to_kafka_pipeline",
     default_args=default_args,
     description="Fetch data from API and stream to Kafka",
-    schedule_interval="*/10 * * * *",  # ทุก 10 นาที
+    schedule="*/10 * * * *",  # ทุก 10 นาที
     catchup=False,
     tags=["data-pipeline", "api", "kafka"],
     max_active_runs=1,
