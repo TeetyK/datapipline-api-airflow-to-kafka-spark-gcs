@@ -128,6 +128,7 @@ jobs:
       - name: Install Airflow
         run: |
           pip install apache-airflow==2.7.2
+          # pip install pendulum
       
       - name: Test DAG can be parsed
         run: |
