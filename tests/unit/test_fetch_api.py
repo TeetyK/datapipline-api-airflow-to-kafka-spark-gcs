@@ -180,7 +180,7 @@ class TestFetchApiData:
 
         def mock_env_no_url(key, default=None):
             if key == "API_URL":
-                return None
+                return default
             return mock_env_vars()(key, default)
 
         with patch("dags.api.os.getenv", side_effect=mock_env_no_url):
@@ -190,4 +190,5 @@ class TestFetchApiData:
             # Assert: ควรใช้ default URL
             call_args = mock_get.call_args
             called_url = call_args[1]["url"]
-            assert "api.api-ninjas.com/v2/randomuser" in called_url
+            assert called_url is not None, "URL should not be None"
+            assert "api.api-ninjas.com/v2/randomuser" in called_url.strip()
