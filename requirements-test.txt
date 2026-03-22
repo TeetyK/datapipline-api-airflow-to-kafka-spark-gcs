@@ -16,8 +16,10 @@ unittest2
 # Add airflow for test environments
 apache-airflow
 apache-airflow-providers-http
-pendulum
-importlib-metadata
+
+pendulum==2.1.2
+importlib-metadata==6.11.0 
+
 black
 flake8
 bandit
