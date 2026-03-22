@@ -125,7 +125,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       
-      - name:       - name: Check DAG syntax with Python AST
+      - name: Check DAG syntax with Python AST
         run: |
           python << 'EOF'
           import ast
