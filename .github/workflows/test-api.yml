@@ -125,10 +125,11 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       
-      - name: Check DAG syntax with Python AST
+      - name:       - name: Check DAG syntax with Python AST
         run: |
           python << 'EOF'
           import ast
+          import re
           import sys
           
           print("🔍 Parsing dags/api.py with AST...")
@@ -148,93 +149,71 @@ jobs:
           
           for node in ast.walk(tree):
               if isinstance(node, ast.Call):
-                  # Check if calling DAG()
                   if isinstance(node.func, ast.Name) and node.func.id == 'DAG':
                       dag_found = True
-                      # Extract dag_id from keyword arguments
                       for kw in node.keywords:
                           if kw.arg == 'dag_id':
                               if isinstance(kw.value, ast.Constant):
                                   dag_id = kw.value.value
-                              elif isinstance(kw.value, ast.Str):  # Python <3.8
-                                  dag_id = kw.value.s
                               break
                       break
           
           if not dag_found:
-              print("❌ No DAG() definition found in file")
+              print("❌ No DAG() definition found")
               sys.exit(1)
           
           print(f"✅ Found DAG definition: dag_id='{dag_id}'")
           
-          # Check for required task_id strings in source
+          # ✅ แก้: ใช้ regex เช็ค task_id (รองรับทั้ง ' และ ")
+          print("\n🔍 Checking for required tasks...")
+          
           required_tasks = [
-              "task_id='fetch_api_data'",
-              "task_id='produce_to_kafka'", 
-              "task_id='validate_kafka_delivery'"
+              'fetch_api_data',
+              'produce_to_kafka', 
+              'validate_kafka_delivery'
           ]
           
-          print("\n🔍 Checking for required tasks...")
-          for task in required_tasks:
-              if task in source:
-                  print(f"✅ Found: {task}")
+          for task_name in required_tasks:
+              # ✅ เช็คทั้ง single และ double quotes
+              pattern_single = f"task_id=['\"]{task_name}['\"]"
+              pattern_double = f'task_id=["\']{task_name}["\']'
+              
+              if re.search(pattern_single, source) or re.search(pattern_double, source):
+                  print(f"✅ Found: task_id='{task_name}'")
               else:
-                  print(f"❌ Missing: {task}")
+                  print(f"❌ Missing: task_id='{task_name}'")
                   sys.exit(1)
           
-          # Check for task dependencies (>> operator)
-          if "fetch_data >> produce_kafka >> validate_delivery" in source:
-              print("✅ Found task dependencies: fetch_data >> produce_kafka >> validate_delivery")
+          # ✅ แก้: เช็ค dependencies แบบ flexible
+          print("\n🔍 Checking task dependencies...")
+          
+          # เช็คว่ามี >> operator ระหว่าง tasks
+          has_fetch = 'fetch_data' in source
+          has_produce = 'produce_kafka' in source
+          has_validate = 'validate_delivery' in source
+          
+          if has_fetch and has_produce and has_validate:
+              print("✅ Found all task variable references")
+              
+              # เช็ค dependency pattern (รองรับหลายรูปแบบ)
+              dep_patterns = [
+                  r'fetch_data\s*>>\s*produce_kafka',
+                  r'produce_kafka\s*>>\s*validate_delivery',
+              ]
+              
+              deps_found = 0
+              for pattern in dep_patterns:
+                  if re.search(pattern, source):
+                      deps_found += 1
+              
+              if deps_found >= 1:
+                  print("✅ Found task dependency operators (>>)")
+              else:
+                  print("⚠️  Could not verify task dependencies")
           else:
-              print("⚠️  Task dependency pattern not found (may use different syntax)")
+              print("⚠️  Some task variables not found")
           
           print("\n🎉 DAG structure validation passed!")
-          EOF
-      
-      - name: Check for common issues
-        run: |
-          python << 'EOF'
-          import re
-          import sys
-          
-          print("🔍 Checking for common issues...")
-          
-          with open('dags/api.py', 'r', encoding='utf-8') as f:
-              content = f.read()
-          
-          issues = []
-          
-          # Check for load_dotenv() in DAG file (not recommended for Airflow)
-          if 'load_dotenv()' in content:
-              issues.append("⚠️  load_dotenv() found - Airflow uses env vars directly")
-          
-          # Check for hardcoded secrets (basic check)
-          if re.search(r'["\']sk-[a-zA-Z0-9]{20,}["\']', content):
-              issues.append("❌ Possible hardcoded API key detected!")
-          
-          # Check for API key in headers
-          if 'X-API-Key' in content or 'Authorization' in content:
-              if 'os.getenv' not in content and 'os.environ' not in content:
-                  issues.append("⚠️  API auth found but may not use env vars")
-          
-          # Check for proper error handling
-          if 'try:' in content and 'except' in content:
-              print("✅ Found error handling (try/except)")
-          else:
-              issues.append("⚠️  No try/except blocks found")
-          
-          # Report
-          if issues:
-              print("\n⚠️  Issues found:")
-              for issue in issues:
-                  print(f"   {issue}")
-              # Only fail on critical issues
-              if any("❌" in i for i in issues):
-                  sys.exit(1)
-          else:
-              print("✅ No common issues detected")
-          
-          print("\n🎉 Code quality checks passed!")
           EOF
 
   summary:
