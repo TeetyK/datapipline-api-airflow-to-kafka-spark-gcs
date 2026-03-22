@@ -48,6 +48,22 @@ services:
   spark-master:
     image: apache/spark:3.5.0
     container_name: spark-master
+    environment:
+      - FERNET_KEY=${FERNET_KEY}
+      - API_BEARER_TOKEN=${API_BEARER_TOKEN}
+      - API_URL=${API_URL}
+      - KAFKA_BOOTSTRAP=${KAFKA_BOOTSTRAP}
+      - KAFKA_TOPIC=${KAFKA_TOPIC}
+      - CHECKPOINT_LOCATION=${CHECKPOINT_LOCATION}
+
+        # GCP Configuration
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - GCP_REGION=${GCP_REGION}
+      - GCP_SERVICE_ACCOUNT_PATH=${GCP_SERVICE_ACCOUNT_PATH}
+        # GCS Buckets
+      - GCS_BRONZE_BUCKET=${GCS_BRONZE_BUCKET}
+      - GCS_SILVER_BUCKET=${GCS_SILVER_BUCKET}
+      - GCS_GOLD_BUCKET=${GCS_GOLD_BUCKET}
     ports:
       - "9080:8080"
       - "7077:7077"

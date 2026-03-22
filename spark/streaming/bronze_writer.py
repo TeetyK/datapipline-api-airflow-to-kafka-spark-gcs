@@ -1,12 +1,14 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     from_json , col , to_timestamp , current_timestamp,
-    date_format, input_file_name , spark_partition_id
+    date_format, input_file_name , spark_partition_id , lit
 )
 from pyspark.sql.types import StructType , StructField , StringType , IntegerType , DoubleType
 import os
 import logging
-
+# local
+# from dotenv import load_dotenv
+# load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -14,6 +16,8 @@ KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP","kafka:29092")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC","RawData")
 GCS_BUCKET = os.getenv("GCS_BRONZE_BUCKET")
 CHECKPOINT_LOCATION = os.getenv("CHECKPOINT_LOCATION","/tmp/checkpoints/bronze")
+GCP_SERVICE_ACCOUNT_PATH = os.getenv("GCP_SERVICE_ACCOUNT_PATH")
+GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
 USER_SCHEMA = StructType([
     StructField("user_id", StringType(), True),
     StructField("username", StringType(), True),
@@ -36,3 +40,92 @@ USER_SCHEMA = StructType([
     StructField("api_version", StringType(), True),
 ])
 
+def create_spark_session():
+
+    logger.info(f"GCP Project: {GCP_PROJECT_ID}")
+    logger.info(f"GCS Bucket: {GCS_BUCKET}")
+    
+    spark_packages = "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0," \
+                     "com.google.cloud.bigdataoss:gcs-connector:hadoop3-2.2.23"
+    
+    spark = SparkSession.builder \
+        .appName("KafkaToGCSBronze") \
+        .config("spark.jars.packages", spark_packages) \
+        .config("spark.hadoop.fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem") \
+        .config("spark.hadoop.fs.AbstractFileSystem.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS") \
+        .config("spark.sql.streaming.forceDeleteTempCheckpointLocation", "true") \
+        .config("spark.hadoop.fs.gs.project.id", GCP_PROJECT_ID)
+        # .master("spark://localhost:7077") \
+    
+    if GCP_SERVICE_ACCOUNT_PATH and os.path.exists(GCP_SERVICE_ACCOUNT_PATH):
+        logger.info(f"📄 Using Service Account: {GCP_SERVICE_ACCOUNT_PATH}")
+        spark = spark \
+            .config("spark.hadoop.google.cloud.auth.service.account.enable", "true") \
+            .config("spark.hadoop.google.cloud.auth.service.account.json.keyfile", GCP_SERVICE_ACCOUNT_PATH)
+    
+    spark = spark.getOrCreate()
+    spark.sparkContext.setLogLevel("WARN")
+    
+    logger.info("✅ Spark Session created")
+    return spark
+
+def write_to_bronze(df, batch_id):
+    """Write batch to Bronze layer in GCS"""
+    if df.rdd.isEmpty():
+        logger.info(f"Batch {batch_id} is empty")
+        return
+    
+    record_count = df.count()
+    logger.info(f"Processing batch {batch_id} with {record_count} records")
+    
+    # Add metadata
+    df_with_metadata = df \
+        .withColumn("ingested_at", current_timestamp()) \
+        .withColumn("event_date", date_format(col("fetched_at"), "yyyy-MM-dd")) \
+        .withColumn("batch_id", lit(str(batch_id))) \
+        .withColumn("source_file", input_file_name())
+    
+    output_path = f"gs://{GCS_BUCKET}/raw/users/event_date={{event_date}}"
+    
+    df_with_metadata.write \
+        .format("parquet") \
+        .mode("append") \
+        .partitionBy("event_date") \
+        .option("compression", "snappy") \
+        .save(output_path.replace("{event_date}", df_with_metadata.select("event_date").first()[0]))
+    
+    logger.info(f"Batch {batch_id} written to gs://{GCS_BUCKET}")
+
+def main():
+    logger.info("Starting Bronze Layer Writer...")
+    
+    spark = create_spark_session()
+    
+    kafka_df = spark.readStream \
+        .format("kafka") \
+        .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP) \
+        .option("subscribe", KAFKA_TOPIC) \
+        .option("startingOffsets", "latest") \
+        .option("failOnDataLoss", "false") \
+        .load()
+    
+    parsed_df = kafka_df.select(
+        from_json(col("value").cast("string"), USER_SCHEMA).alias("user"),
+        col("timestamp").alias("kafka_timestamp"),
+        col("offset"),
+        col("partition")
+    ).select("user.*", "kafka_timestamp", "offset", "partition")
+    
+    query = parsed_df.writeStream \
+        .foreachBatch(write_to_bronze) \
+        .outputMode("append") \
+        .trigger(processingTime="1 minute") \
+        .option("checkpointLocation", CHECKPOINT_LOCATION) \
+        .queryName("bronze_writer") \
+        .start()
+    
+    logger.info(f"✅ Bronze writer started! Checkpoint: {CHECKPOINT_LOCATION}")
+    query.awaitTermination()
+
+if __name__ == "__main__":
+    main()
