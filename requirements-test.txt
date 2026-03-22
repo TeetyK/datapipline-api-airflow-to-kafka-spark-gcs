@@ -17,7 +17,7 @@ unittest2
 apache-airflow
 apache-airflow-providers-http
 
-pendulum==2.1.2
+# pendulum==2.1.2
 importlib-metadata==6.11.0 
 
 black
