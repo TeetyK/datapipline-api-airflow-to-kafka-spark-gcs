@@ -26,6 +26,7 @@ jobs:
   lint:
     name: Lint Code
     runs-on: ubuntu-latest
+    environment: GCS
     
     steps:
       - uses: actions/checkout@v4
@@ -55,6 +56,7 @@ jobs:
     name: Unit Tests
     runs-on: ubuntu-latest
     needs: lint
+    environment: GCS
     
     # strategy:
     #   matrix:
@@ -113,6 +115,7 @@ jobs:
     name: DAG Parsing Check
     runs-on: ubuntu-latest
     needs: lint
+    environment: GCS
     
     steps:
       - uses: actions/checkout@v4
@@ -169,6 +172,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [unit-tests, dag-parsing]
     if: always()
+    environment: GCS
     
     steps:
       - name: Generate summary
