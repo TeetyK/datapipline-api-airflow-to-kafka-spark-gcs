@@ -57,6 +57,10 @@ services:
       - CHECKPOINT_LOCATION=${CHECKPOINT_LOCATION}
       - BQ_DATASET=${BQ_DATASET}
       - BQ_TABLE=${BQ_TABLE}
+      - SQ_DATASET=${SQ_DATASET}
+      - SQ_TABLE=${SQ_TABLE}
+      - GQ_DATASET=${GQ_DATASET}
+      - GQ_TABLE=${GQ_TABLE}
 
         # GCP Configuration
       - GCP_PROJECT_ID=${GCP_PROJECT_ID}
