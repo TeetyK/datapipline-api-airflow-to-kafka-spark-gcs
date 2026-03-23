@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP","kafka:29092")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC","RawData")
 GCS_BUCKET = os.getenv("GCS_BRONZE_BUCKET")
+BQ_DATASET = os.getenv("BQ_DATASET")
+BQ_TABLE = os.getenv("BQ_TABLE")
 CHECKPOINT_LOCATION = os.getenv("CHECKPOINT_LOCATION","/tmp/checkpoints/bronze")
 GCP_SERVICE_ACCOUNT_PATH = os.getenv("GCP_SERVICE_ACCOUNT_PATH")
 GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
@@ -47,21 +49,24 @@ def create_spark_session():
     
     spark_packages = "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0," \
                      "com.google.cloud.bigdataoss:gcs-connector:hadoop3-2.2.23"
-    
+    bq_connector = "com.google.cloud.spark:spark-bigquery-with-dependencies_2.12:0.35.0"
     spark = SparkSession.builder \
         .appName("KafkaToGCSBronze") \
-        .config("spark.jars.packages", spark_packages) \
         .config("spark.hadoop.fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem") \
         .config("spark.hadoop.fs.AbstractFileSystem.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS") \
         .config("spark.sql.streaming.forceDeleteTempCheckpointLocation", "true") \
-        .config("spark.hadoop.fs.gs.project.id", GCP_PROJECT_ID)
+        .config("spark.hadoop.fs.gs.project.id", GCP_PROJECT_ID)\
+        .config("spark.hadoop.google.cloud.auth.service.account.enable", "true") \
+        .config("spark.hadoop.google.cloud.auth.service.account.json.keyfile", GCP_SERVICE_ACCOUNT_PATH)\
+        .config("spark.datasource.bigquery.project", GCP_PROJECT_ID)
+        # .config(f"{bq_connector},")\
+        # .config("spark.jars.packages", spark_packages) \
         # .master("spark://localhost:7077") \
-    
-    if GCP_SERVICE_ACCOUNT_PATH and os.path.exists(GCP_SERVICE_ACCOUNT_PATH):
-        logger.info(f"📄 Using Service Account: {GCP_SERVICE_ACCOUNT_PATH}")
-        spark = spark \
-            .config("spark.hadoop.google.cloud.auth.service.account.enable", "true") \
-            .config("spark.hadoop.google.cloud.auth.service.account.json.keyfile", GCP_SERVICE_ACCOUNT_PATH)
+    # if GCP_SERVICE_ACCOUNT_PATH and os.path.exists(GCP_SERVICE_ACCOUNT_PATH):
+    #     logger.info(f"📄 Using Service Account: {GCP_SERVICE_ACCOUNT_PATH}")
+    #     spark = spark \
+    #         .config("spark.hadoop.google.cloud.auth.service.account.enable", "true") \
+    #         .config("spark.hadoop.google.cloud.auth.service.account.json.keyfile", GCP_SERVICE_ACCOUNT_PATH)
     
     spark = spark.getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
@@ -85,15 +90,22 @@ def write_to_bronze(df, batch_id):
         .withColumn("batch_id", lit(str(batch_id))) \
         .withColumn("source_file", input_file_name())
     
-    output_path = f"gs://{GCS_BUCKET}/raw/users/event_date={{event_date}}"
+    output_path = f"{GCP_PROJECT_ID}.{BQ_DATASET}.{BQ_TABLE}"
     
-    df_with_metadata.write \
-        .format("parquet") \
-        .mode("append") \
-        .partitionBy("event_date") \
-        .option("compression", "snappy") \
-        .save(output_path.replace("{event_date}", df_with_metadata.select("event_date").first()[0]))
-    
+    # df_with_metadata.write \
+    #     .format("parquet") \
+    #     .mode("append") \
+    #     .partitionBy("event_date") \
+    #     .option("compression", "snappy") \
+    #     .save(output_path.replace("{event_date}", df_with_metadata.select("event_date").first()[0]))
+    df_with_metadata.write\
+        .format("bigquery")\
+        .option("table",output_path)\
+        .option("writeMethod","direct")\
+        .option("project",GCP_PROJECT_ID)\
+        .mode("append")\
+        .save()
+
     logger.info(f"Batch {batch_id} written to gs://{GCS_BUCKET}")
 
 def main():
@@ -121,7 +133,7 @@ def main():
         .outputMode("append") \
         .trigger(processingTime="1 minute") \
         .option("checkpointLocation", CHECKPOINT_LOCATION) \
-        .queryName("bronze_writer") \
+        .queryName("bigquery_bronze_writer") \
         .start()
     
     logger.info(f"✅ Bronze writer started! Checkpoint: {CHECKPOINT_LOCATION}")
