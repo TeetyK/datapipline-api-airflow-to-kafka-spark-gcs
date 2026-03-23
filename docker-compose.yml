@@ -55,6 +55,8 @@ services:
       - KAFKA_BOOTSTRAP=${KAFKA_BOOTSTRAP}
       - KAFKA_TOPIC=${KAFKA_TOPIC}
       - CHECKPOINT_LOCATION=${CHECKPOINT_LOCATION}
+      - BQ_DATASET=${BQ_DATASET}
+      - BQ_TABLE=${BQ_TABLE}
 
         # GCP Configuration
       - GCP_PROJECT_ID=${GCP_PROJECT_ID}
@@ -64,6 +66,8 @@ services:
       - GCS_BRONZE_BUCKET=${GCS_BRONZE_BUCKET}
       - GCS_SILVER_BUCKET=${GCS_SILVER_BUCKET}
       - GCS_GOLD_BUCKET=${GCS_GOLD_BUCKET}
+      - GOOGLE_CLOUD_PROJECT=${GCP_PROJECT_ID}
+      - GOOGLE_APPLICATION_CREDENTIALS=/opt/spark/keys/api-datapipeline-2-ef3107a0390f.json
     ports:
       - "9080:8080"
       - "7077:7077"
@@ -71,6 +75,7 @@ services:
     volumes:
       - ./spark:/opt/spark/jobs
       - ./jars:/opt/spark/custom_jars
+      - ./keys:/opt/spark/keys
     networks:
       - data-pipeline
     depends_on:
@@ -83,9 +88,12 @@ services:
     environment:
       - SPARK_WORKER_CORES=2
       - SPARK_WORKER_MEMORY=1g
+      - GOOGLE_CLOUD_PROJECT=${GCP_PROJECT_ID}
+      - GOOGLE_APPLICATION_CREDENTIALS=/opt/spark/keys/api-datapipeline-2-ef3107a0390f.json
     volumes:
       - ./spark:/opt/spark/jobs
       - ./jars:/opt/spark/custom_jars
+      - ./keys:/opt/spark/keys
     networks:
       - data-pipeline
     depends_on:
